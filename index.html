@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Monitoring Cockpit</title>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: #131b2e;
+            --border-color: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-blue: #3b82f6;
+            --warning-yellow: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            padding: 20px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .brand {
+            font-size: 1.2rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            color: var(--text-primary);
+        }
+
+        .status-badge {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-green);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        /* ダッシュボード全体レイアウト */
+        .dashboard-container {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            gap: 20px;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* 1. マルチグリッドビュー（俯瞰パネル） */
+        .grid-view {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 12px;
+        }
+
+        .asset-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .asset-card:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .asset-card.active {
+            border-color: var(--accent-blue);
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .asset-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .asset-price {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .asset-status {
+            font-size: 0.75srem;
+            color: var(--accent-green);
+        }
+
+        /* 2. メインワークスペース */
+        .main-workspace {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            overflow: hidden;
+        }
+
+        .workspace-left {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        .panel {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 16px;
+        }
+
+        .panel-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* 気配値・オーダーフロー簡易表現 */
+        .order-flow-bars {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .flow-bar-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+        }
+
+        .bar-container {
+            flex: 1;
+            margin: 0 12px;
+            background: var(--border-color);
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+        }
+
+        .bar-fill-bid { background: var(--accent-green); height: 100%; }
+        .bar-fill-ask { background: var(--accent-red); height: 100%; }
+
+        /* テロップ / ログエリア */
+        .ticker-line {
+            font-size: 0.85rem;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.02);
+            border-left: 3px solid var(--accent-blue);
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .log-terminal {
+            background: #07090f;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 12px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.8rem;
+            height: 100%;
+            overflow-y: auto;
+            color: #38bdf8;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .log-item {
+            display: flex;
+            gap: 10px;
+        }
+
+        .log-time { color: var(--text-secondary); }
+        .log-warn { color: var(--warning-yellow); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand">MARKET MONITORING COCKPIT <span style="font-size: 0.7rem; color: var(--text-secondary);">v1.0</span></div>
+        <div class="status-badge">● LIVE STREAMING ACTIVE</div>
+    </header>
+
+    <div class="dashboard-container">
+        <!-- マルチグリッドビュー（初期監視プール6銘柄） -->
+        <div class="grid-view">
+            <div class="asset-card active" onclick="switchMain('USD/JPY')">
+                <div class="asset-header"><span>USD/JPY</span><span>CORE</span></div>
+                <div class="asset-price">152.485</div>
+                <div class="asset-status">金利連動 94%</div>
+            </div>
+            <div class="asset-card" onclick="switchMain('US10Y')">
+                <div class="asset-header"><span>US10Y</span><span>RATE</span></div>
+                <div class="asset-price">4.215%</div>
+                <div class="asset-status" style="color:var(--accent-red);">+0.042</div>
+            </div>
+            <div class="asset-card" onclick="switchMain('US02Y')">
+                <div class="asset-header"><span>US02Y</span><span>RATE</span></div>
+                <div class="asset-price">4.180%</div>
+                <div class="asset-status" style="color:var(--accent-green);">+0.012</div>
+            </div>
+            <div class="asset-card" onclick="switchMain('NASDAQ')">
+                <div class="asset-header"><span>NASDAQ</span><span>EQUITY</span></div>
+                <div class="asset-price">18,450.2</div>
+                <div class="asset-status" style="color:var(--accent-green);">+0.85%</div>
+            </div>
+            <div class="asset-card" onclick="switchMain('XAU/USD')">
+                <div class="asset-header"><span>XAU/USD</span><span>GOLD</span></div>
+                <div class="asset-price">2,735.40</div>
+                <div class="asset-status" style="color:var(--accent-red);">-0.15%</div>
+            </div>
+            <div class="asset-card" onclick="switchMain('WTI Crude')">
+                <div class="asset-header"><span>WTI Crude</span><span>ENERGY</span></div>
+                <div class="asset-price">71.80</div>
+                <div class="asset-status" style="color:var(--accent-green);">+1.20%</div>
+            </div>
+        </div>
+
+        <!-- メインワークスペース -->
+        <div class="main-workspace">
+            <div class="workspace-left">
+                <!-- メイン銘柄詳細 & 気配値 -->
+                <div class="panel">
+                    <div class="panel-title" id="main-title">Active Workspace: USD/JPY (Order Flow & Depth)</div>
+                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px;">
+                        <h2 style="font-size: 1.8rem; font-weight: 700;">152.485 <span style="font-size: 0.9rem; color: var(--accent-green);">+0.32 (+0.21%)</span></h2>
+                        <span style="font-size: 0.85rem; color: var(--text-secondary);">Spread: 0.2pips</span>
+                    </div>
+                    
+                    <!-- 気配値バー -->
+                    <div class="order-flow-bars">
+                        <div class="flow-bar-row">
+                            <span>BID 厚み (62%)</span>
+                            <div class="bar-container"><div class="bar-fill-bid" style="width: 62%;"></div></div>
+                            <span>ASK 厚み (38%)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- リアルタイム・テロップ -->
+                <div class="panel">
+                    <div class="panel-title">Macro Flash / Telop Stream</div>
+                    <div class="ticker-line">📌 【米金利連動アラート】米10年債利回りの上昇に対し、ドル円の追随に一時的な遅れ（歪み乖離スコア: 2.4σ）を検知。</div>
+                    <div class="ticker-line" style="border-left-color: var(--warning-yellow);">⚡ 【資金シフト観測】ロンドン FIX に向けた欧州勢によるクロス円のフロー傾きを確認。</div>
+                </div>
+            </div>
+
+            <!-- 右側：専用通知ログ（ターミナル風） -->
+            <div class="panel" style="display: flex; flex-direction: column;">
+                <div class="panel-title">Anomaly & Flow Notification Logs</div>
+                <div class="log-terminal">
+                    <div class="log-item"><span class="log-time">[12:21:00]</span> <span>System initialized successfully. Monitoring 6 core macro assets.</span></div>
+                    <div class="log-item"><span class="log-time">[12:21:15]</span> <span class="log-warn">[DISTORTION] US10Y vs USD/JPY correlation dip detected.</span></div>
+                    <div class="log-item"><span class="log-time">[12:21:40]</span> <span>Institutional flow weight adjusted: USD/JPY buy-side pressure +4.2%.</span></div>
+                    <div class="log-item"><span class="log-time">[12:22:05]</span> <span>Macro Telop Stream updated. No critical risk events.</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchMain(assetName) {
+            // グリッドのアクティブ切り替え
+            document.querySelectorAll('.asset-card').forEach(card => {
+                card.classList.remove('active');
+                if(card.querySelector('.asset-header span').textContent === assetName) {
+                    card.classList.add('active');
+                }
+            });
+            // メインタイトルの変更
+            document.getElementById('main-title').textContent = `Active Workspace: ${assetName} (Order Flow & Depth)`;
+        }
+    </script>
+</body>
+</html>
